@@ -1,12 +1,13 @@
 import Icon from "@/components/ui/icon";
+import type { User } from "@/lib/api";
 
 const STATS = [
-  { label: "Сообщений", value: "1 284" },
-  { label: "Контактов", value: "36" },
-  { label: "Медиафайлов", value: "148" },
+  { label: "Сообщений", value: "0" },
+  { label: "Контактов", value: "0" },
+  { label: "Медиафайлов", value: "0" },
 ];
 
-export default function ProfilePanel() {
+export default function ProfilePanel({ user }: { user: User }) {
   return (
     <div className="flex-1 overflow-y-auto scrollbar-thin bg-background">
       <div className="max-w-xl mx-auto px-6 py-8 space-y-6">
@@ -14,16 +15,19 @@ export default function ProfilePanel() {
 
         <div className="glass rounded-3xl p-6 flex flex-col items-center gap-4">
           <div className="relative">
-            <div className="w-24 h-24 rounded-2xl msg-gradient flex items-center justify-center text-3xl font-bold text-white neon-glow-purple">
-              ВМ
+            <div
+              className="w-24 h-24 rounded-2xl flex items-center justify-center text-3xl font-bold neon-glow-purple"
+              style={{ background: user.color + "33", border: `2px solid ${user.color}66`, color: user.color }}
+            >
+              {user.avatar}
             </div>
             <button className="absolute -bottom-1 -right-1 w-7 h-7 rounded-lg bg-primary flex items-center justify-center shadow-lg">
               <Icon name="Camera" size={12} className="text-white" />
             </button>
           </div>
           <div className="text-center">
-            <h2 className="font-golos font-bold text-xl text-foreground">Вы</h2>
-            <p className="text-sm text-muted-foreground">@me · ФРАСЕ ID: #0001</p>
+            <h2 className="font-golos font-bold text-xl text-foreground">{user.name}</h2>
+            <p className="text-sm text-muted-foreground">@{user.username} · ФРАСЕ ID: #{String(user.id).padStart(4, "0")}</p>
           </div>
           <div className="flex gap-6">
             {STATS.map((s) => (
@@ -37,9 +41,9 @@ export default function ProfilePanel() {
 
         <div className="glass rounded-2xl divide-y divide-border">
           {[
-            { icon: "User", label: "Имя", value: "Ваше имя" },
-            { icon: "Phone", label: "Телефон", value: "+7 (999) 000-00-00" },
-            { icon: "Mail", label: "Email", value: "you@frase.app" },
+            { icon: "User", label: "Имя", value: user.name },
+            { icon: "AtSign", label: "Username", value: "@" + user.username },
+            { icon: "Mail", label: "Email", value: user.email },
             { icon: "FileText", label: "О себе", value: "Привет! Я в ФРАСЕ 👋" },
           ].map((item) => (
             <div key={item.label} className="flex items-center gap-3 px-4 py-3.5">

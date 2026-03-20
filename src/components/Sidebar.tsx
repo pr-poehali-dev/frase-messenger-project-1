@@ -1,9 +1,12 @@
 import Icon from "@/components/ui/icon";
 import { Section } from "@/pages/Index";
+import type { User } from "@/lib/api";
 
 type Props = {
   activeSection: Section;
   onSectionChange: (s: Section) => void;
+  currentUser: User;
+  onLogout: () => void;
 };
 
 const NAV = [
@@ -18,7 +21,7 @@ const BOTTOM_NAV = [
   { id: "profile" as Section, icon: "User", label: "Профиль" },
 ];
 
-export default function Sidebar({ activeSection, onSectionChange }: Props) {
+export default function Sidebar({ activeSection, onSectionChange, currentUser }: Props) {
   return (
     <aside className="w-16 flex flex-col items-center py-4 gap-2 border-r border-border bg-card shrink-0">
       <div className="mb-4 w-10 h-10 rounded-xl msg-gradient flex items-center justify-center neon-glow-purple shrink-0">
@@ -47,10 +50,14 @@ export default function Sidebar({ activeSection, onSectionChange }: Props) {
             onClick={() => onSectionChange(item.id)}
           />
         ))}
-        <div className="mt-2 w-9 h-9 rounded-xl flex items-center justify-center text-xs font-bold text-white cursor-pointer"
-          style={{ background: "linear-gradient(135deg, #a855f7, #6366f1)" }}>
-          ВМ
-        </div>
+        <button
+          onClick={() => onSectionChange("profile")}
+          title={currentUser.name}
+          className="mt-2 w-9 h-9 rounded-xl flex items-center justify-center text-xs font-bold cursor-pointer hover:scale-105 transition-all"
+          style={{ background: currentUser.color + "33", border: `1.5px solid ${currentUser.color}66`, color: currentUser.color }}
+        >
+          {currentUser.avatar}
+        </button>
       </div>
     </aside>
   );

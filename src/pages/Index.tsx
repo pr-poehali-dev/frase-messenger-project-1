@@ -8,6 +8,7 @@ import SettingsPanel from "@/components/SettingsPanel";
 import NotificationsPanel from "@/components/NotificationsPanel";
 import MediaPanel from "@/components/MediaPanel";
 import CallOverlay from "@/components/CallOverlay";
+import type { User } from "@/lib/api";
 
 export type Section = "chats" | "contacts" | "profile" | "settings" | "notifications" | "media";
 
@@ -49,7 +50,12 @@ const MESSAGES: Message[] = [
   { id: 6, text: "Окей, буду в 18:00!", time: "18:42", mine: false, type: "text" },
 ];
 
-export default function Index() {
+type Props = {
+  currentUser: User;
+  onLogout: () => void;
+};
+
+export default function Index({ currentUser, onLogout }: Props) {
   const [activeSection, setActiveSection] = useState<Section>("chats");
   const [activeChat, setActiveChat] = useState<Chat | null>(CHATS[0]);
   const [messages, setMessages] = useState<Message[]>(MESSAGES);
@@ -79,7 +85,7 @@ export default function Index() {
         <CallOverlay contact={callContact} onEnd={() => setCalling(false)} />
       )}
 
-      <Sidebar activeSection={activeSection} onSectionChange={setActiveSection} />
+      <Sidebar activeSection={activeSection} onSectionChange={setActiveSection} currentUser={currentUser} onLogout={onLogout} />
 
       <div className="flex flex-1 overflow-hidden">
         {activeSection === "chats" && (
@@ -98,8 +104,8 @@ export default function Index() {
           </>
         )}
         {activeSection === "contacts" && <ContactsPanel chats={CHATS} onCall={handleCall} />}
-        {activeSection === "profile" && <ProfilePanel />}
-        {activeSection === "settings" && <SettingsPanel />}
+        {activeSection === "profile" && <ProfilePanel user={currentUser} />}
+        {activeSection === "settings" && <SettingsPanel onLogout={onLogout} />}
         {activeSection === "notifications" && <NotificationsPanel />}
         {activeSection === "media" && <MediaPanel />}
       </div>

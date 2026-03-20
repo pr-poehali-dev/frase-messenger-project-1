@@ -1,5 +1,6 @@
 import { useState } from "react";
 import Icon from "@/components/ui/icon";
+import { logout } from "@/lib/api";
 
 const SECTIONS = [
   {
@@ -34,9 +35,14 @@ const SECTIONS = [
   },
 ];
 
-export default function SettingsPanel() {
+export default function SettingsPanel({ onLogout }: { onLogout: () => void }) {
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [notifs, setNotifs] = useState(true);
+
+  const handleLogout = async () => {
+    await logout();
+    onLogout();
+  };
 
   return (
     <div className="flex-1 overflow-y-auto scrollbar-thin bg-background">
@@ -112,7 +118,7 @@ export default function SettingsPanel() {
           </div>
         ))}
 
-        <button className="w-full glass rounded-2xl py-3.5 text-destructive hover:bg-destructive/10 transition-colors font-medium text-sm flex items-center justify-center gap-2">
+        <button onClick={handleLogout} className="w-full glass rounded-2xl py-3.5 text-destructive hover:bg-destructive/10 transition-colors font-medium text-sm flex items-center justify-center gap-2">
           <Icon name="LogOut" size={16} />
           Выйти из аккаунта
         </button>
