@@ -1,0 +1,16 @@
+{
+  "tests": [
+    {
+      "name": "No token returns 401",
+      "method": "GET",
+      "path": "/?action=conversations",
+      "expectedStatus": 401
+    },
+    {
+      "name": "OPTIONS returns 200",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
+    }
+  ]
+}

@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
-import { Chat } from "@/pages/Index";
+import type { ContactUser } from "@/lib/api";
 import Icon from "@/components/ui/icon";
 
 type Props = {
-  contact: Chat;
+  contact: ContactUser;
   onEnd: () => void;
 };
 

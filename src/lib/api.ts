@@ -59,4 +59,65 @@ export async function logout() {
   clearToken();
 }
 
+const CHATS_URL = "https://functions.poehali.dev/2a61556e-691d-4a82-ab71-db8e7653883c";
+
+async function callChats(action: string, method: string, params?: Record<string, string>, body?: object) {
+  const token = getToken();
+  const qs = new URLSearchParams({ action, ...params }).toString();
+  const res = await fetch(`${CHATS_URL}?${qs}`, {
+    method,
+    headers: { "Content-Type": "application/json", "X-Auth-Token": token },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const data = await res.json();
+  return { ok: res.ok, data };
+}
+
+export type ContactUser = {
+  id: number;
+  name: string;
+  username: string;
+  avatar: string;
+  color: string;
+  online: boolean;
+};
+
+export type Conversation = {
+  conversation_id: number;
+  user: ContactUser;
+  last_message: string;
+  time: string;
+  unread: number;
+};
+
+export type ChatMessage = {
+  id: number;
+  sender_id: number;
+  mine: boolean;
+  text: string;
+  type: "text" | "voice";
+  duration?: string;
+  time: string;
+};
+
+export async function listUsers(): Promise<ContactUser[]> {
+  const r = await callChats("list_users", "GET");
+  return r.ok ? r.data.users : [];
+}
+
+export async function getConversations(): Promise<Conversation[]> {
+  const r = await callChats("conversations", "GET");
+  return r.ok ? r.data.conversations : [];
+}
+
+export async function getMessages(withUserId: number): Promise<ChatMessage[]> {
+  const r = await callChats("messages", "GET", { with_user_id: String(withUserId) });
+  return r.ok ? r.data.messages : [];
+}
+
+export async function sendMessage(toUserId: number, text: string, type: "text" | "voice" = "text", duration?: string): Promise<ChatMessage | null> {
+  const r = await callChats("send", "POST", {}, { to_user_id: toUserId, text, type, duration });
+  return r.ok ? r.data.message : null;
+}
+
 export { getToken, clearToken };

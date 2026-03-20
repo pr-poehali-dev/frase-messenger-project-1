@@ -1,15 +1,16 @@
 import { useRef, useState, useEffect } from "react";
-import { Chat, Message } from "@/pages/Index";
+import type { Conversation, ChatMessage, ContactUser } from "@/lib/api";
 import Icon from "@/components/ui/icon";
 
 type Props = {
-  chat: Chat | null;
-  messages: Message[];
+  conv: Conversation | null;
+  messages: ChatMessage[];
+  loading: boolean;
   onSend: (text: string, type?: "text" | "voice", duration?: string) => void;
-  onCall: (chat: Chat) => void;
+  onCall: (user: ContactUser) => void;
 };
 
-export default function ChatWindow({ chat, messages, onSend, onCall }: Props) {
+export default function ChatWindow({ conv, messages, loading, onSend, onCall }: Props) {
   const [input, setInput] = useState("");
   const [recording, setRecording] = useState(false);
   const [recordSecs, setRecordSecs] = useState(0);
@@ -51,7 +52,7 @@ export default function ChatWindow({ chat, messages, onSend, onCall }: Props) {
 
   const fmtSecs = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 
-  if (!chat) {
+  if (!conv) {
     return (
       <div className="flex-1 flex items-center justify-center bg-background">
         <div className="text-center space-y-3">
@@ -64,36 +65,53 @@ export default function ChatWindow({ chat, messages, onSend, onCall }: Props) {
     );
   }
 
+  const user = conv.user;
+
   return (
     <div className="flex-1 flex flex-col bg-background min-w-0">
       <header className="px-5 py-3.5 border-b border-border flex items-center justify-between glass shrink-0">
         <div className="flex items-center gap-3">
           <div
             className="w-9 h-9 rounded-xl flex items-center justify-center text-xs font-bold"
-            style={{ background: chat.color + "22", border: `1.5px solid ${chat.color}44`, color: chat.color }}
+            style={{ background: user.color + "22", border: `1.5px solid ${user.color}44`, color: user.color }}
           >
-            {chat.avatar}
+            {user.avatar}
           </div>
           <div>
-            <div className="text-sm font-semibold text-foreground">{chat.name}</div>
+            <div className="text-sm font-semibold text-foreground">{user.name}</div>
             <div className="text-xs text-muted-foreground flex items-center gap-1">
-              {chat.online ? (
-                <><span className="w-1.5 h-1.5 rounded-full bg-neon-green inline-block" />онлайн</>
-              ) : "не в сети"}
+              {user.online
+                ? <><span className="w-1.5 h-1.5 rounded-full bg-neon-green inline-block" />онлайн</>
+                : "не в сети"}
             </div>
           </div>
         </div>
         <div className="flex items-center gap-1">
-          <HeaderBtn icon="Phone" onClick={() => onCall(chat)} />
-          <HeaderBtn icon="Video" onClick={() => onCall(chat)} />
-          <HeaderBtn icon="Search" onClick={() => {}} />
+          <HeaderBtn icon="Phone" onClick={() => onCall(user)} />
+          <HeaderBtn icon="Video" onClick={() => onCall(user)} />
           <HeaderBtn icon="MoreVertical" onClick={() => {}} />
         </div>
       </header>
 
       <div className="flex-1 overflow-y-auto scrollbar-thin px-5 py-4 space-y-2">
-        {messages.map((msg, i) => (
-          <MessageBubble key={msg.id} msg={msg} chat={chat} delay={i} />
+        {loading && (
+          <div className="flex justify-center py-8">
+            <Icon name="Loader2" size={20} className="text-muted-foreground animate-spin" />
+          </div>
+        )}
+        {!loading && messages.length === 0 && (
+          <div className="flex flex-col items-center justify-center h-full gap-3 py-16">
+            <div
+              className="w-14 h-14 rounded-2xl flex items-center justify-center text-lg font-bold"
+              style={{ background: user.color + "22", color: user.color }}
+            >
+              {user.avatar}
+            </div>
+            <p className="text-sm text-muted-foreground">Начните переписку с {user.name}</p>
+          </div>
+        )}
+        {!loading && messages.map((msg, i) => (
+          <MessageBubble key={msg.id} msg={msg} user={user} delay={i} />
         ))}
         <div ref={bottomRef} />
       </div>
@@ -168,7 +186,7 @@ function HeaderBtn({ icon, onClick }: { icon: string; onClick: () => void }) {
   );
 }
 
-function MessageBubble({ msg, chat, delay }: { msg: Message; chat: Chat; delay: number }) {
+function MessageBubble({ msg, user, delay }: { msg: ChatMessage; user: { avatar: string; color: string }; delay: number }) {
   return (
     <div
       className={`flex ${msg.mine ? "justify-end" : "justify-start"} animate-fade-in`}
@@ -177,9 +195,9 @@ function MessageBubble({ msg, chat, delay }: { msg: Message; chat: Chat; delay: 
       {!msg.mine && (
         <div
           className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold mr-2 self-end mb-1 shrink-0"
-          style={{ background: chat.color + "22", color: chat.color }}
+          style={{ background: user.color + "22", color: user.color }}
         >
-          {chat.avatar}
+          {user.avatar}
         </div>
       )}
       <div

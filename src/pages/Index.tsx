@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Sidebar from "@/components/Sidebar";
 import ChatList from "@/components/ChatList";
 import ChatWindow from "@/components/ChatWindow";
@@ -8,47 +8,10 @@ import SettingsPanel from "@/components/SettingsPanel";
 import NotificationsPanel from "@/components/NotificationsPanel";
 import MediaPanel from "@/components/MediaPanel";
 import CallOverlay from "@/components/CallOverlay";
-import type { User } from "@/lib/api";
+import type { User, Conversation, ChatMessage, ContactUser } from "@/lib/api";
+import { getConversations, getMessages, sendMessage, listUsers } from "@/lib/api";
 
 export type Section = "chats" | "contacts" | "profile" | "settings" | "notifications" | "media";
-
-export type Chat = {
-  id: number;
-  name: string;
-  avatar: string;
-  lastMessage: string;
-  time: string;
-  unread: number;
-  online: boolean;
-  color: string;
-};
-
-export type Message = {
-  id: number;
-  text: string;
-  time: string;
-  mine: boolean;
-  type: "text" | "voice";
-  duration?: string;
-};
-
-const CHATS: Chat[] = [
-  { id: 1, name: "Алиса Новикова", avatar: "АН", lastMessage: "Окей, буду в 18:00!", time: "18:42", unread: 3, online: true, color: "#a855f7" },
-  { id: 2, name: "Команда ФРАСЕ", avatar: "КФ", lastMessage: "Новый дизайн выглядит 🔥", time: "17:55", unread: 12, online: true, color: "#22d3ee" },
-  { id: 3, name: "Максим Орлов", avatar: "МО", lastMessage: "Голосовое сообщение · 0:32", time: "16:30", unread: 0, online: false, color: "#ec4899" },
-  { id: 4, name: "Катя Светлова", avatar: "КС", lastMessage: "Посмотри файлы в медиа", time: "14:10", unread: 1, online: true, color: "#10b981" },
-  { id: 5, name: "Игорь Данилов", avatar: "ИД", lastMessage: "Созвонимся завтра?", time: "12:05", unread: 0, online: false, color: "#f59e0b" },
-  { id: 6, name: "Sophia Chen", avatar: "SC", lastMessage: "Thanks, got it!", time: "вчера", unread: 0, online: true, color: "#6366f1" },
-];
-
-const MESSAGES: Message[] = [
-  { id: 1, text: "Привет! Как дела?", time: "18:01", mine: false, type: "text" },
-  { id: 2, text: "Отлично! Работаем над новым проектом 🚀", time: "18:03", mine: true, type: "text" },
-  { id: 3, text: "", time: "18:15", mine: false, type: "voice", duration: "0:24" },
-  { id: 4, text: "Звучит интересно! Покажешь потом?", time: "18:20", mine: false, type: "text" },
-  { id: 5, text: "Конечно! Уже почти готово. Встретимся сегодня?", time: "18:35", mine: true, type: "text" },
-  { id: 6, text: "Окей, буду в 18:00!", time: "18:42", mine: false, type: "text" },
-];
 
 type Props = {
   currentUser: User;
@@ -57,26 +20,82 @@ type Props = {
 
 export default function Index({ currentUser, onLogout }: Props) {
   const [activeSection, setActiveSection] = useState<Section>("chats");
-  const [activeChat, setActiveChat] = useState<Chat | null>(CHATS[0]);
-  const [messages, setMessages] = useState<Message[]>(MESSAGES);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [activeConv, setActiveConv] = useState<Conversation | null>(null);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [allUsers, setAllUsers] = useState<ContactUser[]>([]);
   const [calling, setCalling] = useState(false);
-  const [callContact, setCallContact] = useState<Chat | null>(null);
+  const [callContact, setCallContact] = useState<ContactUser | null>(null);
+  const [loadingMsgs, setLoadingMsgs] = useState(false);
 
-  const handleCall = (chat: Chat) => {
-    setCallContact(chat);
-    setCalling(true);
+  const loadConversations = useCallback(async () => {
+    const convs = await getConversations();
+    setConversations(convs);
+  }, []);
+
+  const loadUsers = useCallback(async () => {
+    const users = await listUsers();
+    setAllUsers(users);
+  }, []);
+
+  useEffect(() => {
+    loadConversations();
+    loadUsers();
+    const interval = setInterval(loadConversations, 5000);
+    return () => clearInterval(interval);
+  }, [loadConversations, loadUsers]);
+
+  const handleSelectConv = async (conv: Conversation) => {
+    setActiveConv(conv);
+    setLoadingMsgs(true);
+    const msgs = await getMessages(conv.user.id);
+    setMessages(msgs);
+    setLoadingMsgs(false);
   };
 
-  const handleSendMessage = (text: string, type: "text" | "voice" = "text", duration?: string) => {
-    const newMsg: Message = {
-      id: messages.length + 1,
-      text,
-      time: new Date().toLocaleTimeString("ru", { hour: "2-digit", minute: "2-digit" }),
-      mine: true,
-      type,
-      duration,
+  const handleOpenChat = async (user: ContactUser) => {
+    const existing = conversations.find((c) => c.user.id === user.id);
+    if (existing) {
+      setActiveSection("chats");
+      handleSelectConv(existing);
+      return;
+    }
+    const fake: Conversation = {
+      conversation_id: 0,
+      user,
+      last_message: "",
+      time: "",
+      unread: 0,
     };
-    setMessages((prev) => [...prev, newMsg]);
+    setActiveConv(fake);
+    setMessages([]);
+    setActiveSection("chats");
+  };
+
+  const handleSend = async (text: string, type: "text" | "voice" = "text", duration?: string) => {
+    if (!activeConv) return;
+    const msg = await sendMessage(activeConv.user.id, text, type, duration);
+    if (msg) {
+      setMessages((prev) => [...prev, msg]);
+      await loadConversations();
+    }
+  };
+
+  const pollMessages = useCallback(async () => {
+    if (!activeConv) return;
+    const msgs = await getMessages(activeConv.user.id);
+    setMessages(msgs);
+  }, [activeConv]);
+
+  useEffect(() => {
+    if (!activeConv) return;
+    const interval = setInterval(pollMessages, 4000);
+    return () => clearInterval(interval);
+  }, [pollMessages, activeConv]);
+
+  const handleCall = (user: ContactUser) => {
+    setCallContact(user);
+    setCalling(true);
   };
 
   return (
@@ -91,19 +110,22 @@ export default function Index({ currentUser, onLogout }: Props) {
         {activeSection === "chats" && (
           <>
             <ChatList
-              chats={CHATS}
-              activeChat={activeChat}
-              onSelectChat={setActiveChat}
+              conversations={conversations}
+              activeConv={activeConv}
+              onSelectConv={handleSelectConv}
+              allUsers={allUsers}
+              onOpenChat={handleOpenChat}
             />
             <ChatWindow
-              chat={activeChat}
+              conv={activeConv}
               messages={messages}
-              onSend={handleSendMessage}
+              loading={loadingMsgs}
+              onSend={handleSend}
               onCall={handleCall}
             />
           </>
         )}
-        {activeSection === "contacts" && <ContactsPanel chats={CHATS} onCall={handleCall} />}
+        {activeSection === "contacts" && <ContactsPanel users={allUsers} onOpenChat={handleOpenChat} onCall={handleCall} />}
         {activeSection === "profile" && <ProfilePanel user={currentUser} />}
         {activeSection === "settings" && <SettingsPanel onLogout={onLogout} />}
         {activeSection === "notifications" && <NotificationsPanel />}
