@@ -1,5 +1,6 @@
 import { useRef, useState, useEffect } from "react";
 import type { Conversation, ChatMessage, ContactUser } from "@/lib/api";
+import { deleteMessage } from "@/lib/api";
 import Icon from "@/components/ui/icon";
 
 type Props = {
@@ -8,9 +9,26 @@ type Props = {
   loading: boolean;
   onSend: (text: string, type?: "text" | "voice", duration?: string) => void;
   onCall: (user: ContactUser) => void;
+  onMessageDeleted: (id: number) => void;
 };
 
-export default function ChatWindow({ conv, messages, loading, onSend, onCall }: Props) {
+function formatLastSeen(isoStr?: string | null): string {
+  if (!isoStr) return "не в сети";
+  const d = new Date(isoStr);
+  const now = new Date();
+  const diffMs = now.getTime() - d.getTime();
+  const diffMin = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMin / 60);
+  const diffDays = Math.floor(diffHours / 24);
+
+  if (diffMin < 2) return "только что в сети";
+  if (diffMin < 60) return `был(а) ${diffMin} мин. назад`;
+  if (diffHours < 24) return `был(а) ${diffHours} ч. назад`;
+  if (diffDays === 1) return "был(а) вчера";
+  return `был(а) ${diffDays} дн. назад`;
+}
+
+export default function ChatWindow({ conv, messages, loading, onSend, onCall, onMessageDeleted }: Props) {
   const [input, setInput] = useState("");
   const [recording, setRecording] = useState(false);
   const [recordSecs, setRecordSecs] = useState(0);
@@ -80,9 +98,11 @@ export default function ChatWindow({ conv, messages, loading, onSend, onCall }: 
           <div>
             <div className="text-sm font-semibold text-foreground">{user.name}</div>
             <div className="text-xs text-muted-foreground flex items-center gap-1">
-              {user.online
-                ? <><span className="w-1.5 h-1.5 rounded-full bg-neon-green inline-block" />онлайн</>
-                : "не в сети"}
+              {user.online ? (
+                <><span className="w-1.5 h-1.5 rounded-full bg-neon-green inline-block" />онлайн</>
+              ) : (
+                formatLastSeen(user.last_seen)
+              )}
             </div>
           </div>
         </div>
@@ -111,7 +131,7 @@ export default function ChatWindow({ conv, messages, loading, onSend, onCall }: 
           </div>
         )}
         {!loading && messages.map((msg, i) => (
-          <MessageBubble key={msg.id} msg={msg} user={user} delay={i} />
+          <MessageBubble key={msg.id} msg={msg} user={user} delay={i} onDelete={onMessageDeleted} />
         ))}
         <div ref={bottomRef} />
       </div>
@@ -186,11 +206,34 @@ function HeaderBtn({ icon, onClick }: { icon: string; onClick: () => void }) {
   );
 }
 
-function MessageBubble({ msg, user, delay }: { msg: ChatMessage; user: { avatar: string; color: string }; delay: number }) {
+function MessageBubble({
+  msg,
+  user,
+  delay,
+  onDelete,
+}: {
+  msg: ChatMessage;
+  user: { avatar: string; color: string };
+  delay: number;
+  onDelete: (id: number) => void;
+}) {
+  const [hovered, setHovered] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    if (!msg.mine || msg.deleted) return;
+    setDeleting(true);
+    const ok = await deleteMessage(msg.id);
+    if (ok) onDelete(msg.id);
+    else setDeleting(false);
+  };
+
   return (
     <div
-      className={`flex ${msg.mine ? "justify-end" : "justify-start"} animate-fade-in`}
+      className={`flex ${msg.mine ? "justify-end" : "justify-start"} animate-fade-in group`}
       style={{ animationDelay: `${Math.min(delay * 20, 200)}ms` }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
     >
       {!msg.mine && (
         <div
@@ -200,21 +243,36 @@ function MessageBubble({ msg, user, delay }: { msg: ChatMessage; user: { avatar:
           {user.avatar}
         </div>
       )}
-      <div
-        className={`max-w-[65%] rounded-2xl px-4 py-2.5 ${
-          msg.mine
-            ? "msg-gradient text-white rounded-br-sm"
-            : "bg-secondary text-foreground rounded-bl-sm"
-        }`}
-      >
-        {msg.type === "voice" ? (
-          <VoiceMessage duration={msg.duration || "0:00"} mine={msg.mine} />
-        ) : (
-          <p className="text-sm leading-relaxed">{msg.text}</p>
+
+      <div className="flex items-end gap-1.5">
+        {msg.mine && hovered && !msg.deleted && (
+          <button
+            onClick={handleDelete}
+            disabled={deleting}
+            className="mb-1 w-6 h-6 rounded-lg bg-destructive/10 hover:bg-destructive/20 text-destructive flex items-center justify-center transition-all opacity-0 group-hover:opacity-100"
+          >
+            <Icon name={deleting ? "Loader2" : "Trash2"} size={12} className={deleting ? "animate-spin" : ""} />
+          </button>
         )}
-        <div className={`text-[10px] mt-1 ${msg.mine ? "text-white/60 text-right" : "text-muted-foreground text-right"}`}>
-          {msg.time}
-          {msg.mine && <Icon name="CheckCheck" size={10} className="inline ml-1 text-white/60" />}
+
+        <div
+          className={`max-w-[65%] rounded-2xl px-4 py-2.5 ${
+            msg.mine
+              ? "msg-gradient text-white rounded-br-sm"
+              : "bg-secondary text-foreground rounded-bl-sm"
+          } ${msg.deleted ? "opacity-50" : ""}`}
+        >
+          {msg.deleted ? (
+            <p className="text-sm italic opacity-70">Сообщение удалено</p>
+          ) : msg.type === "voice" ? (
+            <VoiceMessage duration={msg.duration || "0:00"} mine={msg.mine} />
+          ) : (
+            <p className="text-sm leading-relaxed">{msg.text}</p>
+          )}
+          <div className={`text-[10px] mt-1 ${msg.mine ? "text-white/60 text-right" : "text-muted-foreground text-right"}`}>
+            {msg.time}
+            {msg.mine && !msg.deleted && <Icon name="CheckCheck" size={10} className="inline ml-1 text-white/60" />}
+          </div>
         </div>
       </div>
     </div>
@@ -257,9 +315,9 @@ function WaveVisualizer() {
       {Array.from({ length: 24 }).map((_, i) => (
         <div
           key={i}
-          className="w-0.5 bg-primary rounded-full wave-bar"
+          className="w-0.5 rounded-full bg-destructive/60 wave-bar"
           style={{
-            height: `${10 + Math.random() * 16}px`,
+            height: `${12 + Math.sin(i * 0.7) * 8}px`,
             animationDelay: `${i * 50}ms`,
           }}
         />

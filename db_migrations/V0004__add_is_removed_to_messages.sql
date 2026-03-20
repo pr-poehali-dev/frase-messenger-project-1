@@ -1,0 +1,1 @@
+ALTER TABLE t_p79293718_frase_messenger_proj.messages ADD COLUMN IF NOT EXISTS is_removed boolean NOT NULL DEFAULT false;

@@ -9,7 +9,7 @@ import NotificationsPanel from "@/components/NotificationsPanel";
 import MediaPanel from "@/components/MediaPanel";
 import CallOverlay from "@/components/CallOverlay";
 import type { User, Conversation, ChatMessage, ContactUser } from "@/lib/api";
-import { getConversations, getMessages, sendMessage, listUsers } from "@/lib/api";
+import { getConversations, getMessages, sendMessage, listUsers, pingOnline } from "@/lib/api";
 
 export type Section = "chats" | "contacts" | "profile" | "settings" | "notifications" | "media";
 
@@ -41,8 +41,13 @@ export default function Index({ currentUser, onLogout }: Props) {
   useEffect(() => {
     loadConversations();
     loadUsers();
+    pingOnline();
     const interval = setInterval(loadConversations, 5000);
-    return () => clearInterval(interval);
+    const pingInterval = setInterval(pingOnline, 30000);
+    return () => {
+      clearInterval(interval);
+      clearInterval(pingInterval);
+    };
   }, [loadConversations, loadUsers]);
 
   const handleSelectConv = async (conv: Conversation) => {
@@ -93,6 +98,12 @@ export default function Index({ currentUser, onLogout }: Props) {
     return () => clearInterval(interval);
   }, [pollMessages, activeConv]);
 
+  const handleMessageDeleted = (id: number) => {
+    setMessages((prev) =>
+      prev.map((m) => (m.id === id ? { ...m, deleted: true, text: "" } : m))
+    );
+  };
+
   const handleCall = (user: ContactUser) => {
     setCallContact(user);
     setCalling(true);
@@ -122,11 +133,19 @@ export default function Index({ currentUser, onLogout }: Props) {
               loading={loadingMsgs}
               onSend={handleSend}
               onCall={handleCall}
+              onMessageDeleted={handleMessageDeleted}
             />
           </>
         )}
         {activeSection === "contacts" && <ContactsPanel users={allUsers} onOpenChat={handleOpenChat} onCall={handleCall} />}
-        {activeSection === "profile" && <ProfilePanel user={currentUser} />}
+        {activeSection === "profile" && (
+          <ProfilePanel
+            user={currentUser}
+            onAvatarChange={(av) => {
+              currentUser.avatar = av;
+            }}
+          />
+        )}
         {activeSection === "settings" && <SettingsPanel onLogout={onLogout} />}
         {activeSection === "notifications" && <NotificationsPanel />}
         {activeSection === "media" && <MediaPanel />}

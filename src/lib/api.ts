@@ -80,6 +80,7 @@ export type ContactUser = {
   avatar: string;
   color: string;
   online: boolean;
+  last_seen?: string | null;
 };
 
 export type Conversation = {
@@ -98,6 +99,7 @@ export type ChatMessage = {
   type: "text" | "voice";
   duration?: string;
   time: string;
+  deleted?: boolean;
 };
 
 export async function listUsers(): Promise<ContactUser[]> {
@@ -118,6 +120,20 @@ export async function getMessages(withUserId: number): Promise<ChatMessage[]> {
 export async function sendMessage(toUserId: number, text: string, type: "text" | "voice" = "text", duration?: string): Promise<ChatMessage | null> {
   const r = await callChats("send", "POST", {}, { to_user_id: toUserId, text, type, duration });
   return r.ok ? r.data.message : null;
+}
+
+export async function deleteMessage(messageId: number): Promise<boolean> {
+  const r = await callChats("delete_message", "POST", {}, { message_id: messageId });
+  return r.ok;
+}
+
+export async function updateAvatar(avatar: string): Promise<boolean> {
+  const r = await callChats("update_avatar", "POST", {}, { avatar });
+  return r.ok;
+}
+
+export async function pingOnline(): Promise<void> {
+  await callChats("ping", "POST", {}, {});
 }
 
 export { getToken, clearToken };

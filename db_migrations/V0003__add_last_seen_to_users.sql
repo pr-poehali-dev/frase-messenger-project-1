@@ -1,0 +1,1 @@
+ALTER TABLE t_p79293718_frase_messenger_proj.users ADD COLUMN IF NOT EXISTS last_seen timestamptz DEFAULT now();

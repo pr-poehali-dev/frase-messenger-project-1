@@ -137,7 +137,7 @@ def login(event: dict) -> dict:
         f"INSERT INTO {SCHEMA}.sessions (user_id, token) VALUES (%s, %s)",
         (user_id, token)
     )
-    cur.execute(f"UPDATE {SCHEMA}.users SET online = TRUE WHERE id = %s", (user_id,))
+    cur.execute(f"UPDATE {SCHEMA}.users SET online = TRUE, last_seen = NOW() WHERE id = %s", (user_id,))
     conn.commit()
     conn.close()
 
