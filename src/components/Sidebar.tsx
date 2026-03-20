@@ -10,7 +10,6 @@ type Props = {
 };
 
 const NAV = [
-  { id: "chats" as Section, icon: "MessageSquare", label: "Чаты" },
   { id: "contacts" as Section, icon: "Users", label: "Контакты" },
   { id: "media" as Section, icon: "Image", label: "Медиа" },
   { id: "notifications" as Section, icon: "Bell", label: "Уведомления" },
